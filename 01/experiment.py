@@ -15,6 +15,17 @@ import time
 import os
 import json
 
+import matplotlib
+matplotlib.use('Agg')  # 非交互式后端，避免弹窗
+import matplotlib.pyplot as plt
+
+# 设置中文字体
+try:
+    plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
+    plt.rcParams['axes.unicode_minus'] = False
+except Exception:
+    pass
+
 from network_generator import (
     generate_bbv_network, generate_sbm_network, generate_ws_network,
     get_weight_matrix, get_network_info
@@ -371,7 +382,176 @@ def run_small_scale_test():
     for rank, (name, res) in enumerate(ranking, 1):
         print(f"  {rank}. {name:<15}: {res['total']:.2f}  ({res['time']:.2f}s)")
     
+    # ---- 绘制柱状图：横坐标=各算法（种子集合），纵坐标=意见总和 ----
+    _plot_seed_opinion_bar(results)
+    
+    # ---- 绘制折线图：横坐标=种子节点数 k (0~100 步长20)，纵坐标=意见总和 ----
+    _plot_k_opinion_line(DG, W, communities, initial_opinions, T)
+    
     return results
+
+
+def _plot_seed_opinion_bar(results, save_path=None):
+    """
+    绘制柱状图：横坐标为各算法对应的种子集合，纵坐标为意见总和。
+    
+    按意见总和从高到低排序，每个柱子注释具体数值。
+    
+    Args:
+        results: dict，格式为 {算法名: {'total': float, ...}}
+        save_path: 图片保存路径，默认保存到 results/seed_opinion_bar.png
+    """
+    # 按意见总和降序排序
+    sorted_items = sorted(results.items(), key=lambda x: x[1]['total'], reverse=True)
+    algo_names = [item[0] for item in sorted_items]
+    totals = [item[1]['total'] for item in sorted_items]
+
+    # 颜色：T-DQN 用深蓝突出，Q-Learning 用橙色，其余启发式用灰色系
+    colors = []
+    for name in algo_names:
+        if name == 'T-DQN':
+            colors.append('#1f77b4')
+        elif name == 'Q-Learning':
+            colors.append('#ff7f0e')
+        else:
+            colors.append('#aec7e8')
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    x_pos = np.arange(len(algo_names))
+    bars = ax.bar(x_pos, totals, color=colors, width=0.6, edgecolor='white', linewidth=1.2)
+
+    # 在每个柱子顶部标注数值
+    for bar, val in zip(bars, totals):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2.0,
+            bar.get_height() + 0.01 * (max(totals) - min(totals)),
+            f'{val:.2f}',
+            ha='center', va='bottom', fontsize=10
+        )
+
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(algo_names, fontsize=11, rotation=15, ha='right')
+    ax.set_xlabel('种子集合（算法）', fontsize=13)
+    ax.set_ylabel('最终意见总和', fontsize=13)
+    ax.set_title('各算法种子集合对应的意见总和对比', fontsize=14)
+    ax.grid(axis='y', alpha=0.35, linestyle='--')
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    # 图例说明
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor='#1f77b4', label='T-DQN'),
+        Patch(facecolor='#ff7f0e', label='Q-Learning'),
+        Patch(facecolor='#aec7e8', label='启发式基线'),
+    ]
+    ax.legend(handles=legend_elements, fontsize=10, loc='upper right')
+
+    plt.tight_layout()
+
+    # 保存图片
+    if save_path is None:
+        os.makedirs('results', exist_ok=True)
+        save_path = os.path.join('results', 'seed_opinion_bar.png')
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"\n  [图表] 已保存: {save_path}")
+
+
+def _plot_k_opinion_line(G, W, communities, initial_opinions, T,
+                         k_values=None, save_path=None):
+    """
+    折线图：横坐标为种子节点数 k（0~100，步长20），纵坐标为意见总和。
+    
+    对比 7 种算法：MaxDegree / Blocking / MixStrategy / CbC / CI / Q-Learning / T-DQN。
+    k=0 时意见总和为无任何种子干预的基准值。
+    
+    Args:
+        G: 有向图
+        W: 权重矩阵
+        communities: 社区映射
+        initial_opinions: 初始观点向量
+        T: 时间步数
+        k_values: 测试的 k 列表，默认 [0, 20, 40, 60, 80, 100]
+        save_path: 图片保存路径，默认 results/k_opinion_line.png
+    """
+    if k_values is None:
+        k_values = list(range(0, 101, 20))  # [0, 20, 40, 60, 80, 100]
+
+    algo_names = ACTION_NAMES + ['Q-Learning', 'T-DQN']
+
+    # 每种算法的颜色与标记
+    style_map = {
+        'MaxDegree':   {'color': '#e377c2', 'marker': 'o',  'ls': '-'},
+        'Blocking':    {'color': '#8c564b', 'marker': 's',  'ls': '--'},
+        'MixStrategy': {'color': '#2ca02c', 'marker': '^',  'ls': '-.'},
+        'CbC':         {'color': '#9467bd', 'marker': 'D',  'ls': ':'},
+        'CI':          {'color': '#17becf', 'marker': 'v',  'ls': '-'},
+        'Q-Learning':  {'color': '#ff7f0e', 'marker': 'p',  'ls': '--'},
+        'T-DQN':       {'color': '#1f77b4', 'marker': '*',  'ls': '-'},
+    }
+
+    # ---- 计算各算法在不同 k 值下的意见总和 ----
+    print(f"\n{'='*60}")
+    print(f"折线图实验：k 从 0 到 100（步长 20），T={T}")
+    print(f"{'='*60}")
+
+    # k=0 时的基准（无种子干预）
+    baseline_total = OpinionDynamics(W, initial_opinions=initial_opinions).run(T, seed_indices=[])
+
+    data = {algo: [] for algo in algo_names}
+    # k 不能超过节点数-1，防止候选池为空
+    max_k = G.number_of_nodes() - 1
+
+    for k in k_values:
+        print(f"  k = {k} ...", end=" ", flush=True)
+        if k == 0:
+            # k=0：所有算法都等于基准
+            for algo in algo_names:
+                data[algo].append(baseline_total)
+        else:
+            actual_k = min(k, max_k)
+            for algo in algo_names:
+                np.random.seed(42)
+                seeds, total, _ = run_single_algorithm(
+                    algo, G, W, actual_k, T, initial_opinions, communities
+                )
+                data[algo].append(total)
+                print(f"{algo}:{total:.1f}", end=" ", flush=True)
+        print()
+
+    # ---- 绘图 ----
+    fig, ax = plt.subplots(figsize=(11, 6))
+
+    for algo in algo_names:
+        st = style_map[algo]
+        ax.plot(
+            k_values, data[algo],
+            color=st['color'],
+            marker=st['marker'],
+            linestyle=st['ls'],
+            linewidth=2,
+            markersize=7,
+            label=algo
+        )
+
+    ax.set_xticks(k_values)
+    ax.set_xlabel('种子节点数量 (k)', fontsize=13)
+    ax.set_ylabel('最终意见总和', fontsize=13)
+    ax.set_title('各对比算法意见总和随种子节点数变化折线图', fontsize=14)
+    ax.legend(fontsize=10, loc='best')
+    ax.grid(True, alpha=0.35, linestyle='--')
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    plt.tight_layout()
+
+    if save_path is None:
+        os.makedirs('results', exist_ok=True)
+        save_path = os.path.join('results', 'k_opinion_line.png')
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"\n  [图表] 折线图已保存: {save_path}")
 
 
 if __name__ == '__main__':

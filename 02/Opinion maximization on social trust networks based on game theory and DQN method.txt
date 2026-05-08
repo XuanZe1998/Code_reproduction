@@ -1,0 +1,1597 @@
+--- PAGE 1 ---
+Opinion maximization on social trust networks based on game 
+theory and DQN method
+Lin Yu
+a
+, Ting Yang
+b
+, Cuiyou Yao
+a
+, Dongpu Fu
+a
+, Yuzhi Wang
+a , *
+a
+School of Management and Engineering, Capital University of Economics and Business, Beijing 100070, the People ’ s Republic of China
+b
+College of Business Administration, Capital University of Economics and Business, Beijing 100070, the People ’ s Republic of China
+ARTICLE INFO
+Keywords:
+Opinion maximization
+Game theory
+Deep Q-network
+Social trust network
+ABSTRACT
+The dissemination of opinions in social networks significantly influences public opinion, mar -
+keting, and social governance. The Opinion Maximization (OM) problem aims to select appro -
+priate seed nodes to maximize the overall opinion of the network. However, existing research 
+primarily focuses on maximizing the number of influenced nodes, and exploration of information 
+acceptance and fusion within networks remains insufficient. Therefore, this paper studies opinion 
+maximization on social trust networks (STNs) based on an extended continuous opinion dynamic 
+model. First, we consider individual stubbornness as a strategic choice and construct a continuous 
+opinion dynamic model based on game theory. Then, we propose a two-stage method (T-DQN) 
+based on deep reinforcement learning, in which the first stage uses an effective heuristic rule to 
+screen potential seeds, and the second stage uses Deep Q-Network (DQN) to determine seeds and 
+combines prioritized experience replay and soft update mechanisms to improve learning effi -
+ciency. Experiments demonstrate that T-DQN outperforms various baseline methods in maxi -
+mizing the sum of final opinions and is robustly applicable to different networks and different 
+initial opinion settings (random choice/echo chambers). Additionally, experiments on initial 
+cooperation and network structures provide new insights for optimizing opinion guidance and 
+information spread.
+1. Introduction
+With the rapid development of social media, the impact of social networks on individuals has become increasingly evident, and 
+relationships between people have become more complex and diverse [ 1 ]. In this context, social network analysis has gradually 
+attracted the attention of many scholars. Many opinion dissemination studies [ 2 ] or network optimization studies [ 3 ] focus on un -
+directed or unweighted traditional social networks. However, the degree of influence among users in social networks varies. For 
+example, ordinary users are more susceptible to the influence of key opinion leaders, while key opinion leaders are almost unaffected 
+by ordinary users [ 4 ]. Moreover, the relationship between users often involves opposite types, such as trust/distrust, liking/disliking, 
+etc. The trust/distrust relationship and degree between nodes are significant for opinion dissemination [ 5 ]. Therefore, introducing a 
+directed weighted signed Social Trust Network (STN) is more realistic [ 6 ].
+Influence Maximization (IM) was first proposed by Kempe et al. [ 7 ] and has become a classic problem in social network analysis. It 
+has been widely applied in marketing promotion [ 8 ], public opinion governance [ 9 ], and other fields. The diffusion process in IM 
+* Corresponding author.
+E-mail address: 12023210002@cueb.edu.cn (Y. Wang). 
+Contents lists available at ScienceDirect
+Information Sciences
+journal homepage: www.elsevi er.com/loc ate/ins
+https://doi.org/10.1016/j.ins.2025.122879
+Received 22 April 2025; Received in revised form 2 November 2025; Accepted 7 November 2025  
+Information Sciences 729 (2026) 122879 
+Available online 9 November 2025 
+0020-0255/© 2025 Elsevier Inc. All rights are reserved, including those for text and data mining, AI training, and similar technologies. 
+
+
+--- PAGE 2 ---
+research often relies on the Independent Cascade (IC) [ 10 ] and the Linear Threshold (LT) [ 11 ] models. In studies considering only a 
+single piece of information, IM aims to find a set of seed nodes in social networks that maximizes the number of influenced nodes 
+through information transmission or virus propagation. Gask ´o et al. [ 12 ] used Shapley value approximation as the fitness function to 
+identify nodes with the highest contribution to the cascade-influenced set. Zhang et al. [ 13 ] proposed a dynamic GCN-based influence 
+maximization algorithm that incorporates a leader false label mechanism, leveraging rich topological information to more effectively 
+identify influential seed nodes. With the emergence of competitive information, the problem of Competitive Influence Maximization 
+(CIM) has attracted increasing research attention. Competitive propagation models provide the basis for CIM research. For example, 
+Pathak et al. [ 14 ] proposed a generalized linear threshold model that incorporates competition to simulate multiple information 
+cascades in a network. As a classical application scenario of CIM, Zehmakan et al. [ 15 ] investigated the viral marketing problem with 
+competing products and developed a polynomial-time approximation approach that achieves an optimal theoretical guarantee. The 
+goal at this point is not only to maximize the number of nodes activated by the target party but also to minimize the number of nodes 
+activated by competitors. For example, Dai et al. [ 16 ] defined the objective function of CIM as maximizing the quantitative disparity 
+between the expected number of positive and negative nodes that are ultimately activated, taking into account the adverse effects of 
+negative opinions.
+Opinion Maximization (OM) is a new extension and application of the IM problem. Gionis et al. [ 17 ] introduced the OM problem 
+and defined it as selecting a set of k nodes to maximize positive opinions on a given topic. Unlike traditional IM problems, OM in -
+tegrates users ’ dynamic opinions, making the problem more practical and meaningful. User opinions will dynamically evolve over time 
+[ 18 ]. For instance, if a company aims to enhance its public reputation, an effective approach is to leverage influential individuals to 
+disseminate positive opinions through a dynamic opinion model, ultimately maximizing the overall level of positive opinions over 
+time.
+OM primarily consists of a dynamic opinion model and a seed node selection algorithm. Among them, opinion dynamic models can 
+generally be divided into discrete and continuous types. Considering that individual opinions are a continuum of subjective attitudes, 
+thoughts, and ideas [ 19 ], this paper focuses on the evolution of continuous opinions. Stubbornness is a common characteristic in 
+opinion dissemination, and many studies have argued that stubborn individuals are always stubborn in the process of evolution 
+[ 20 , 21 ]. Based on Friedkin-Johnson model, some scholars have regarded individual stubbornness as a predefined characteristic and 
+studied the impact of homogeneous and heterogeneous stubbornness on opinion dissemination, enriching research on opinion dy -
+namics models [ 22 ]. However, people ’ s dissemination psychology is dynamic and will change with the surrounding environment or 
+individual psychological state [ 23 ]. Therefore, based on the classic Friedkin-Johnsen model [ 24 ], this paper introduces game theory 
+and constructs an extended continuous opinion dynamic model. This model considers an individual ’ s stubbornness as a strategic 
+choice during the evolutionary process, rather than a predefined characteristic. The degree of consensus with surrounding neighbors is 
+often a key concern for nodes when updating their opinions, and it is also an important factor influencing individual strategy choices. 
+We measure the consensus advantage of individual opinions in a local environment through local interests. In addition, unlike most 
+existing studies [ 2 , 25 ], we argue that similar opinions between nodes do not always indicate higher consensus feedback, and it is 
+related to the trust relationship between nodes. This paper extends the opinion dynamic model from the perspectives of strategy 
+selection and local interests, thereby posing new challenges for OM research.
+As another core component of the OM problem, seed node selection has also received considerable attention from researchers. IM 
+and OM generally determine seed nodes through greedy or heuristic algorithms. Although greedy algorithms are generally effective, 
+they often suffer from high computational complexity. Heuristic algorithms have high efficiency but low accuracy [ 26 ]. To address the 
+IM problem, Wang et al. [ 27 ] introduced the MHPD-greedy method, demonstrating that it preserves 98.81 % of the greedy algorithm ’ s 
+accuracy with merely 0.11 % of its running time. In addition, deep learning methods are gradually being applied to select seed nodes. 
+For example, He et al. [ 28 ] introduced the Q-Learning method when exploring the OM problem of activated opinion dynamic models, 
+using a Q table to store the Q-values of discrete states and actions and selecting the optimal action. Later, He et al. [ 29 ] developed a 
+multi-stage Q-Learning solution for the competitive opinion maximization problem. While Q-Learning is applicable in settings with 
+discrete and compact state spaces, Deep Q-Networks (DQNs) extend this method by employing deep learning to approximate Q values 
+in high-dimensional spaces. DQN is particularly well-suited for high-dimensional or continuous state spaces and can handle more 
+complex tasks. For example, Ma et al. [ 30 ] introduced an evolutionary deep reinforcement learning algorithm, termed EDRL-IM, which 
+formulates the IM problem as a continuous optimization task over the weight parameters of a deep Q-network, combining evolutionary 
+algorithms and deep reinforcement learning algorithms to evolve the DQN. Experiments have shown that EDRL-IM outperforms the 
+most advanced IM methods in finding seed nodes. To date, the DQN approach has mainly been applied in IM research [ 31 ] but has 
+rarely been explored in OM studies.
+In summary, current research on OM is limited, with more focus on maximizing the number of nodes influenced. Therefore, we 
+extend OM research from two aspects: the opinion dynamic model and the seed selection methods. Considering the dynamic selection 
+of individual stubbornness, we propose a game-theoretic opinion dynamics model and develop a two-stage DQN approach to select 
+seed nodes from directed weighted signed social networks to achieve OM.
+Our Contribution. The main contributions of this paper can be summarized as follows:
+(1) Propose a new opinion dissemination model from the perspective of strategy selection. Unlike traditional models that treat 
+individual stubbornness as a fixed characteristic, we model it as a strategy selection of individuals during the evolutionary process, 
+which better aligns with the varying dissemination psychology of individuals in real social contexts.
+(2) Develop a two-stage opinion maximization algorithm (T-DQN) based on DQN for continuous state spaces. By restricting the 
+action space of the DQN algorithm to five potential seed selection strategies, the complexity of the action space is significantly reduced, 
+and the scalability and computational efficiency of the algorithm are improved.
+L. Yu et al.                                                                                                                                                                                                              Information Sciences 729 (2026) 122879 
+2 
+
+
+--- PAGE 3 ---
+(3) Conduct comparative experiments between T-DQN and several baseline algorithms across different networks and under various 
+initial opinion settings to validate the effectiveness and robustness of our proposed algorithm in opinion maximization tasks. In 
+addition, simulation experiments further analyze the impact of the initial cooperation ratio and network structure on the evolution of 
+final opinions, offering valuable practical insights for opinion guidance or intervention.
+The rest of this paper is organized as follows. Section 2 presents a framework for maximizing opinions, including constructing a 
+dynamic opinion model and selecting seed nodes. Section 3 determines the datasets and model parameters and validates the effec -
+tiveness and robustness of T-DQN. Section 4 conducts simulation experiments and analysis to explore the impact of the initial 
+cooperation ratio and network structure. Finally, Section 5 is the conclusion of this paper.
+2. Opinion maximization framework
+2.1. Problem Definition
+Social trust networks will model individuals and their trust or distrust relationships, which can be represented by a directed 
+weighted signed graph G = ( V , E , W ) , where V = { v
+1
+, v
+2
+, ⋯ , v
+N
+} and E = { e
+1
+, e
+2
+, ⋯ , e
+M
+} are node sets and edge sets, respectively. Nodes 
+represent individual agents, with directed edges capturing the directional relationships between adjacent entities. The weight matrix 
+W =
+{
+ω
+ij
+, 1 ≤ i ≤ N , 1 ≤ j ≤ N
+}
+is constrained to ω
+ij
+∈ [   1 , 1 ] to maintain consistent interpretation and ensure stability in opinion 
+dynamics, where   1 ≤ ω
+ij
+< 0 represents the level of distrust that v
+i 
+has in v
+j
+, 0 < ω
+ij
+≤ 1 represents the level of trust that v
+i 
+has in v
+j
+, 
+and ω
+ij
+= 0 represents the absence of directed edges between v
+i 
+and v
+j
+. For a precise formulation of the OM problem, we present three 
+formal definitions below. 
+Definition 1 . (Node Opinion): Opinion is a continuous variable represented by the symbol o , and o ∈ [   1 , 1 ] . o ∈ ( 0 , 1 ] indicates that 
+the node holds a positive opinion; o ∈ [   1 , 0 ) indicates that the node holds a negative opinion; o = 0 indicates that the node holds a 
+neutral opinion.
+Definition 2 . (Seed Nodes): A set of k nodes, termed seed nodes, is selected using a designated algorithm to facilitate the spread of 
+positive opinions within the network. The opinions of seed nodes are fixed at + 1. Furthermore, due to the different strategy choices of 
+the nodes when updating opinions, namely to update opinions (cooperate) or to insist on their own opinions (defect), considering that 
+the purpose of seed nodes is to spread opinions to surrounding neighbors efficiently, we also fix the strategy choice of seed nodes as 
+cooperation. Consequently, seed nodes propagate both positive opinions and cooperative strategies to surrounding nodes. Details of 
+the strategy update rules are provided in Section 2.2 .
+Definition 3 . (Opinion Maximization): Given a node set V , choose k seed nodes from V to form a seed node set S ( S ⊂ V ), aiming to 
+maximize the overall opinion after time T . The objective function is:
+Γ ( S ) =
+∑
+i ∈ V
+o
+T
+i
+(1) 
+We will achieve the goal of OM on STN by selecting some influential seed nodes, where Γ ( S ) is referred to as the overall opinion and 
+is the objective function for achieving OM after a specific time T .
+2.2. Opinion dynamic model based on game theory
+Considering the varying individual dissemination psychology [ 23 ], we treat individual stubbornness as a strategic choice made by 
+individuals during the evolutionary process rather than as a predefined characteristic. Therefore, individual opinions evolve according 
+to the game-theoretic opinion model, where opinions at time t are continuous variables o
+t
+i
+∈ [   1 , 1 ] and strategies z
+t
+i
+∈ { 0 , 1 } . The rule 
+for updating opinions is as follows: 
+o
+t + 1
+i
+=
+ 
+1   z
+t
+i
+)
+* o
+t
+i
++ z
+t
+i
+*
+o
+t
+i
++
+∑
+j ∈ N
+out
+i
+ω
+ij
+* B
+t
+j
+* o
+t
+j
+1 +
+∑
+j ∈ N
+out
+i
+⃒
+⃒
+ω
+ij
+⃒
+⃒
+* B
+t
+j
+(2) 
+where N
+out
+i
+=
+{
+j | ω
+ij
+∕= 0
+}
+denotes the set of out-degree neighboring nodes of node i , and ω
+ij
+∕= 0 indicates the existence of directed 
+edges from i to j . A strategy z
+i
+= 1 indicates that node i acts as a cooperator, engaging in opinion updates through interactions with 
+neighbors, whereas z
+i
+= 0 indicates that node i adopts a defector strategy, maintaining its opinion regardless of neighboring influence. 
+B
+t
+j 
+represents the weighted average benefit of node j , corresponding to its consensus advantage obtained in the local network, 
+calculated similarly to the weighted average benefit of node i in Eq. (4) . The degree of consensus with surrounding neighbors is often a 
+concern for nodes when updating their opinions [ 32 ], and nodes will be more willing to refer to the strategies and opinions of 
+neighbors with higher consensus advantages.
+Specifically, we measure the consensus advantage of individual opinions in the local environment through local benefits. Unlike 
+most studies, in social trust networks, similar opinions do not always imply higher consensus feedback, as trust and distrust re -
+lationships modulate the feedback mechanisms. In social interactions, aligning with trusted individuals can reinforce one ’ s opinion, 
+while reaching an agreement with untrusted individuals may trigger self-doubt. At time t , an individual with opinion o
+t
+i 
+receives a 
+L. Yu et al.                                                                                                                                                                                                              Information Sciences 729 (2026) 122879 
+3 
+
+
+--- PAGE 4 ---
+pairwise local benefit when facing an out-degree neighbor holding the opinion o
+t
+j
+, defined as: 
+l
+t
+ij
+=
+⎧
+⎪
+⎪
+⎨
+⎪
+⎪
+⎩
+ 
+1
+2
+( ⃒
+⃒
+⃒ o
+t
+j
+  o
+t
+i
+⃒
+⃒
+⃒   2
+)
+, ω
+ij
+> 0
+1
+2
+⃒
+⃒
+⃒ o
+t
+j
+  o
+t
+i
+⃒
+⃒
+⃒ , ω
+ij
+< 0
+(3) 
+Given the opinion vector o
+t
+=
+ 
+o
+t
+1
+, o
+t
+2
+, ⋯ , o
+t
+N
+)
+, taking into account the local benefits with all out-degree neighbors, the weighted 
+average benefit of node i , B
+t
+i
+∈ [ 0 , 1 ] , is as follows: 
+B
+t
+i
+=
+∑
+j ∈ N
+out
+i
+⃒
+⃒
+ω
+ij
+⃒
+⃒
+l
+t
+ij
+∑
+j ∈ N
+out
+i
+⃒
+⃒
+ω
+ij
+⃒
+⃒
+(4) 
+As for strategy updates, node i will only consider the strategy of its trusted nodes. The process of strategy adjustment is modeled 
+using the Fermi rule. Node i first randomly selects a trusted out-degree neighbor as the comparison object based on the probability p
+ij
+=
+ω
+ij
+∑
+j ∈ N
+out
+(+)
+i
+ω
+ij
+, where N
+out
+(+)
+i 
+denotes the set of trusted out-degree nodes of node i that satisfy ω
+ij
+> 0. Then, node i adopts the strategy of 
+the selected out-degree neighbor j according to the probability W
+t + 1
+( z
+i
+← z
+j )
+at time t + 1, given as: 
+W
+t + 1
+( z
+i
+← z
+j )
+=
+1
+1 + e
+  β
+(
+B
+t
+j
+  B
+t
+i
+) (5) 
+where β represents the selection strength. When β → 0, the selection intensity is weak, indicating that benefits are just a small 
+disturbance to neutral drift. On the contrary, when β → + ∞ , the selection intensity is strong, which means that node i will follow a 
+deterministic rule to adopt the strategies of neighbors achieving higher benefits. In the pairwise comparison update process, the higher 
+the benefit of neighbors, the greater the probability of being imitated; however, the opposite process can still occur with a low 
+probability. In this paper, we consider moderate selection: besides the benefits currently discussed, we also consider imitation 
+randomness or error, reflecting real-world propagation processes [ 33 ]. Without loss of generality, unless specified, we set β to 10, 
+which corresponds to at least moderately strong selection.
+We use i ← j to represent the imitation event of node i randomly imitating the strategy of its out-degree neighbor j . Therefore, the 
+probability of the i ← j event occurring at time t + 1 is R
+t + 1
+[ i ← j ]
+, that is: 
+R
+t + 1
+[ i ← j ]
+= p
+ij
+W
+t + 1
+( z
+i
+← z
+j )
+(6) 
+Therefore, the probability of node i choosing to defect, that is, keeping its opinion unchanged, is as follows: 
+R
+t + 1
+[ i ← i ]
+= 1  
+∑
+j ∈ N
+out
+(+)
+i
+p
+ij
+W
+t + 1
+( z
+i
+← z
+j )
+(7) 
+In this game, nodes decide whether to interact with adjacent nodes based on their strategies (cooperation or defection) and gain 
+benefits according to the results of the interaction (local consensus advantage). During the opinion evolution process, the proportion of 
+nodes adopting cooperative strategies in the network is P
+coop
+=
+  ∑
+N
+i = 1
+z
+i
+)
+/ N , and the initial cooperation proportion is denoted as P
+0
+coop
+.
+2.3. Two-stage opinion maximization based on DQN
+Compared with traditional IM problems, the node opinions in our OM problem are continuous, and the objective function does not 
+satisfy the submodularity property. Thus, we introduce deep reinforcement learning methods to enhance the efficiency of seed node 
+selection. The traditional Q-learning method suits situations where the state space is small and discrete. DQN employs deep neural 
+networks to approximate the Q-value, which is suitable for high-dimensional or continuous state spaces and can handle more complex 
+tasks. Therefore, we propose a two-stage opinion maximization method (T-DQN) based on DQN, where potential seeds are selected in 
+the first stage and seeds are determined in the second stage (see Fig. 1 ).
+2.3.1. Selection of potential seeds
+We first propose an effective heuristic rule to select potential seeds, as shown in Algorithm 1. The pseudocode for selecting potential 
+seeds has three steps: 1) The influence of each node in the network is computed (lines 1 – 3); 2) Nodes are then sorted in decreasing 
+order of influence (line 4); 3) The top λ k nodes are selected as potential seeds (line 5).
+The influence of a node i consists of three components: its intrinsic baseline influence, the influence it receives from its out-degree 
+neighbors, and the influence it exerts on its in-degree neighbors, i.e., p
+i
+= p
+base
+i
++ p
+recv
+i
++ p
+ext
+i
+. The baseline term p
+base
+i 
+reflects the 
+inherent capacity of node i to affect the network based on its initial weighted average benefit. The received and exerted components 
+jointly describe how node i interacts with its neighbors through directed edges. Specifically, the higher the weighted average benefit of 
+its out-degree neighbors, the more likely node i is to learn from it and become a node with a higher weighted average benefit. 
+L. Yu et al.                                                                                                                                                                                                              Information Sciences 729 (2026) 122879 
+4 
+
+
+--- PAGE 5 ---
+Fig. 1. The process of T-DQN algorithm. The social trust network comprises 8 nodes connected by 13 directed edges, with the absolute value of edge weights simplified to 1. The initial network state is 
+shown in the upper left corner. In addition, the goal is to select 2 seeds, and the proportion parameter for selecting potential seeds is set to 2. Firstly, four potential seeds (i.e., nodes 7, 3, 4, 1) are selected 
+by calculating the influence of nodes and sorting them. Then, DQN is employed to determine the final seed nodes (nodes 4 and 7). Finally, the opinion dynamics model is utilized to update the initial 
+opinions, leading to the generation of new opinions after a specified number of time steps ( T = 30). The resulting overall opinion is 6.6.
+L. Yu et al.                                                                                                                                                                                                              Information Sciences 729 (2026) 122879 
+5 
+
+--- PAGE 6 ---
+Conversely, the higher the weighted average benefit of node i , the more likely its in-degree nodes are to learn from it, indicating a 
+greater influence of node i . The weights of out-degree and in-degree edge represent the strength of mutual influence between nodes. 
+Accordingly, the influence p
+i 
+of node i is calculated as follows: 
+p
+i
+= B
+0
+i
++
+∑
+v ∈ N
+out
+i
+B
+0
+v
+ω
+iv
++
+∑
+u ∈ N
+in
+i
+B
+0
+i
+ω
+ui
+(8) 
+where B
+0
+i 
+and B
+0
+v 
+are the initial weighted average benefits of node i and its out-degree neighbor v . N
+out
+i 
+represents the set of nodes that 
+node i points to, while N
+in
+i 
+refers to the set of nodes pointing to i . According to our opinion update rule, node i updates its state by 
+referring only to its out-degree neighbors, while it influences its in-degree neighbors through outward propagation. Therefore, in the 
+outward component p
+ext
+i
+=
+∑
+u ∈ N
+in
+i
+B
+0
+i
+ω
+ui
+, the use of B
+0
+i 
+(rather than B
+0
+u
+) reflects that the influence originates from node i ’ s own initial 
+benefit and is transmitted to its in-degree neighbors. The proposed heuristic approach effectively narrows down the set of potential 
+seed nodes.
+Algorithm 1: Selection of potential seeds
+Input : Social trust network G = ( V , E , W ) , integer k specifying the number of final seed nodes, parameter λ specifying the proportion of potential seed nodes
+Output : Potential seed set C
+BEGIN
+1: for i = 1 : N , do
+2: p
+i
+= B
+0
+i
++
+∑
+v ∈ N
+out
+i
+B
+0
+v
+ω
+iv
++
+∑
+u ∈ N
+in
+i
+B
+0
+i
+ω
+ui
+;
+3: end for
+4:Arrange all nodes in decreasing order based on their influence;
+5:Return the top λ k as potential seeds;
+END
+2.3.2. Final choice of seeds
+Next, we adaptively generate the final seed nodes from the set of potential seeds using the DQN method (see Fig. 2 ). DQN can yield 
+similar outputs when faced with similar input states and make rational decisions in an invisible state, which is vital for ensuring the 
+adaptability and robustness of intelligent agents. In this section, we formalize the core elements of the DQN method and detail the 
+update mechanisms for both the policy network and target network, aiming to optimize the seed selection strategy and then select 
+effective seed nodes. 
+Definition 4 . (Reward): Refers to the incremental final overall opinion of the network after adding a new node to the seed node set. 
+This means that the emphasis is placed directly on how the selected seed nodes contribute to the dissemination of opinions within the 
+network, that is, Γ ( S ∪ { v
+*
+})   Γ ( S ) .
+Definition 5 . (Action): Typically, actions are designed to select certain nodes as seed nodes. However, if each step selects an 
+Fig. 2. Overall design of DQN method.
+L. Yu et al.                                                                                                                                                                                                              Information Sciences 729 (2026) 122879 
+6 
+
+
+--- PAGE 7 ---
+operation from all possible strategies, the computational cost would be prohibitive. Therefore, inspired by the action design of He et al. 
+[ 28 ] in the Q-Learning framework, we propose a straightforward and efficient action strategy by selecting from a set of potential 
+strategies for seed node selection. Specifically, we consider five strategies — MaxDegree, Blocking, MixStrategy, CbC, and CI — that 
+significantly reduce the complexity of the action space. The five potential strategies are as follows:
+(1) MaxDegree: Select the potential seed with the highest out-degree. For potential seed v ∈ C \ S , φ
+1
+( v ) = out-degree ( v ). Select a 
+seed v
+*
+← argmax
+v ∈ C \ S
+φ
+1
+( v ) .
+(2) Blocking: Select the potential seed with the highest in-degree. For potential seed v ∈ C \ S , φ
+2
+( v ) = in-degree ( v ). Select a seed 
+v
+*
+← argmax
+v ∈ C \ S
+φ
+2
+( v ) .
+(3) MixStrategy: Simultaneously considering the number of in-degree and out-degree neighbors of potential seeds. For potential 
+seed v ∈ C \ S , φ ( v ) = σ φ
+1
+( v ) + ( 1   σ ) φ
+2
+( v ) , where σ ∈ ( 0 , 1 ) . To balance the propagation capability (out-degree) and the degree 
+of influence (in-degree) of nodes, let σ = 0 . 5. Select a seed v
+*
+← argmax
+v ∈ C \ S
+φ ( v ) .
+(4) Community-based Centrality (CbC): A centrality index based on network community structure, considering the number and size 
+of communities directly connected by nodes [ 34 ]. For potential seed v ∈ C \ S , CbC ( v ) =
+∑
+u ∈ N
+v
+∧ C
+u
+= C
+v
+| C u |
+N
++
+∑
+u ∈ N
+v
+∧ C
+u
+∕= C
+v
+| C u |
+N
+, 
+where 
+∑
+u ∈ N
+v
+∧ C
+u
+= C
+v
+| C
+u
+|
+N 
+represents internal community centrality, 
+∑
+u ∈ N
+v
+∧ C
+u
+∕= C
+v
+| C
+u
+|
+N 
+represents external community centrality, N
+v 
+is the set of all neighbors of node v , C
+u 
+and C
+v 
+denote the communities of node u and node v , respectively. | C
+u
+| denotes the total 
+number of nodes in the community to which node u belongs. Select a seed v
+*
+← argmax
+v ∈ C \ S
+CbC ( v ) .
+(5) Collective Influence (CI): A seed selection strategy based on network topology characteristics, which not only considers the 
+direct neighbors of nodes but also combines structural features within a certain radius range to measure the propagation ability 
+of nodes [ 35 ]. To balance computational complexity and influence range, we set the radius to 2, which calculates the influence 
+of the node ’ s second-order neighbors. For potential seed v ∈ C \ S , CI ( v ) = ( degree ( v )   1 ) ⋅
+∑
+u ∈ V
+dist ( v , u )= 2
+( degree ( u )   1 ) , where 
+degree ( v ) = out-degree ( v ) + in-degree ( v ), degree ( u ) = out-degree ( u ) + in-degree ( u ), u ∈ V represents traversing all nodes in 
+the social trust network, and dist ( v , u ) = 2 represents selecting only node u with a shortest path distance of 2 from node v . Select 
+a seed v
+*
+← argmax
+v ∈ C \ S
+CI ( v ) .
+Definition 6 . (State): The state space is compressed and continuous, represented by a fixed-length 25-dimensional vector inde -
+pendent of the network size, including the following features:
+(1) Cooperation ratio: The proportion of cooperative nodes in the network to the total number of nodes, i.e., P
+coop
+. Each node will 
+adopt one of two opinion update strategies: defection or cooperation. Based on this, we take the strategy distribution, i.e., the 
+proportion of cooperative nodes, as the global state.
+(2) Average opinion: The mean opinion value across all nodes. The cooperation ratio and average opinion can intuitively reflect the 
+dissemination potential of the network and the influence between nodes.
+(3) Seed selection status: Rather than a node-level binary vector, we adopt an aggregated representation of the current seed set, 
+consisting of the number of selected seeds, the average degree, and the maximum degree.
+(4) Degree features: Instead of using node-level degrees, we use a compressed representation of the degree features. Specifically, the 
+out-degree and in-degree distributions are divided into 10 intervals each, and the proportion of nodes falling into each interval 
+is computed, forming a compact histogram representation.
+The Q value measures the expected long-term returns of a seed node selection strategy in the current state. In the DQN algorithm, 
+the policy network Q
+policy
+ 
+s
+m
+, a
+m
+; θ
+policy
+)
+is a deep neural network that approximates the Q -value function and selects the action a
+m 
+with 
+the maximum estimated Q value under the current state s
+m
+, where θ
+policy 
+represents all parameters of the policy network. The policy 
+network employs the ε -greedy strategy for action selection. Specifically, exploration occurs by randomly selecting an action with 
+probability ε , while utilization is performed by selecting the action with the maximum Q value with probability 1   ε . Random 
+exploration is designed to avoid the agent being trapped in local optima. To ensure sufficient exploration in the early stages of training, 
+avoid premature convergence, and allow a certain degree of utilization to accelerate learning, the initial value of the exploration rate ε 
+is set to 0.4. As training progresses, an exponential decay factor of 0.9 is applied to gradually reduce the exploration. The minimum 
+value of ε is 0.1 to prevent complete cessation of exploration in the later stages. The target network Q
+target
+ 
+s
+m
+, a
+m
+; θ
+target
+)
+provides more 
+stable target Q values, avoiding unstable training caused by constantly changing target values in the policy network. The target 
+network shares the same structure as the policy network, but the parameter θ
+target 
+updates slowly. Below, we present the update rules 
+for both the policy and target networks, incorporating a Prioritized Experience Replay (PER) mechanism in the policy network up -
+dates.
+Firstly, PER mechanism assigns priority to all experiences stored in the replay buffer. During the DQN training, the PER mechanism 
+L. Yu et al.                                                                                                                                                                                                              Information Sciences 729 (2026) 122879 
+7 
+
+
+--- PAGE 8 ---
+facilitates the sampling of experiences with larger Temporal Difference (TD) errors, thereby accelerating learning. We set the batch size 
+to 32 and the buffer size to 10,000 to ensure that the agent learns from a diverse set of historical experiences, which improves training 
+effectiveness and generalization ability. Specifically, the initial priority of a newly added experience 
+ 
+s
+m
+, a
+m
+, r
+m
+, s
+ʹ
+m
+)
+is set to 1, ensuring 
+that new experiences can be sampled promptly to adapt quickly to environmental changes. The priority of existing experience 
+ 
+s
+n
+, a
+n
+,
+r
+n
+, s
+ʹ
+n
+)
+is proportional to the absolute value of its TD error, and the priority index α
+pri 
+is used to adjust the priority: 
+priority
+n
+= (| δ
+n
+| + ∊ )
+α
+pri
+(9) 
+where δ
+n 
+is the TD error of experience n , and ∊ is a small constant that prevents priority from being 0, taking ∊ = 10
+  6
+. α
+pri 
+is set to 0.6. 
+The calculation of δ
+n 
+is as follows: 
+δ
+n
+= y
+n
+  Q
+policy
+( s
+n
+, a
+n
+) (10) 
+where Q
+policy
+( s
+n
+, a
+n
+) is the Q value of ( s
+n
+, a
+n
+) predicted by the policy network. y
+n 
+is the target Q value predicted by the target network 
+under the next state s
+ʹ
+n
+: 
+y
+n
+= r
+n
++ γ • max
+a
+ʹ
+n
+Q
+target
+ 
+s
+ʹ
+n
+, a
+ʹ
+n
+)
+(11) 
+where r
+n 
+is the reward of experience n . γ is a discount factor used to balance short-term and long-term rewards. max
+a
+ʹ
+n
+Q
+target
+ 
+s
+ʹ
+n
+, a
+ʹ
+n
+)
+is the 
+maximum Q value predicted by the target network among all possible next actions a
+ʹ
+n 
+under the next state s
+ʹ
+n
+.
+Subsequently, a batch of 32 experiences is sampled from the prioritized experience replay buffer to update the policy network. 
+Specifically, the probability of sampling each experience is 
+priority
+n
+∑
+M
+i = 1
+priority
+i
+, where M is the total number of experiences in the buffer. To 
+correct the possible bias caused by priority sampling and to ensure the stability and unbiasedness of network updates, a weight is 
+computed for each experience in the batch: 
+w
+n
+=
+(
+1
+10000
+•
+1
+priority
+n
+)
+β
+dqn
+(12) 
+where 10,000 is the size of the buffer, priority
+n 
+is the priority of experience n in the buffer, β
+dqn 
+is an important parameter for adjusting 
+weights, called the importance sampling correction coefficient, used to balance the degree of bias correction. β
+dqn
+≤ 1 is dynamically 
+changing, with an initial value of 0.4. When selecting seed nodes one by one, β
+dqn 
+increases by 10
+  4 
+each time. In addition, to prevent 
+excessive weight values from affecting training stability, it is necessary to perform weight normalization: 
+w
+n
+=
+w
+n
+w
+max
+(13) 
+where w
+max 
+is the maximum value of the weight.
+The update of the policy network aims to minimize the discrepancy between its predicted Q value and the corresponding target Q 
+value. The loss function is typically defined as the Mean Squared Error (MSE) computed over all experiences in the batch. With the 
+introduction of prioritized replay, we use the normalized weight w
+n 
+in Eq. (13) to adjust the loss: 
+L =
+1
+32
+∑
+32
+i = 1
+w
+n
+• ( δ
+n
+)
+2
+(14) 
+At this point, the policy network parameters are updated using gradient descent. The update process is as follows: 
+θ
+policy
+← θ
+policy
+  α ∇
+θ
+L (15) 
+where θ
+policy 
+is the parameter of the policy network, α is the learning rate, controls the update amplitude of the Q value, ∇
+θ
+L is the 
+gradient of the loss function L with respect to θ
+policy
+. The gradient calculation formula is as follows: 
+∇
+θ
+L =
+∑
+32
+i = 1
+w
+n
+• ∇
+θ
+( δ
+n
+)
+2
+(16) 
+this means that experiences with higher priority (i.e., larger TD errors) will have a greater impact during the update of policy network.
+To slowly approach the policy network, the target network uses a soft update mechanism, which gradually replaces the weights of 
+the target network with the weights of the policy network: 
+θ
+target
+← τ θ
+policy
++ ( 1   τ ) θ
+target
+(17) 
+where τ is the soft update coefficient, usually set to a very small value, here set to 0.05.
+In our implementation, both the policy and target networks are fully connected feedforward neural networks. The input is the state 
+L. Yu et al.                                                                                                                                                                                                              Information Sciences 729 (2026) 122879 
+8 
+
+
+--- PAGE 9 ---
+vector, and the output corresponds to the estimated Q value and target Q value for each action. Each network contains two hidden 
+layers with 256 neurons per layer, using ReLU as the activation function. DQN trains neural networks by storing historical experiences 
+(tuples of states, actions, rewards, and the next state) and extracting these experiences through prioritized replay, breaking down the 
+correlation between data and improving training stability.
+The pseudocode of the two-stage seed selection algorithm based on DQN is summarized in Algorithm 2 and comprises the following 
+steps: 1) Obtaining a set of potential seeds through Algorithm 1 (line 1); 2) Initialize seed node set and related parameters (lines 2 – 3); 
+3) Detecting communities in the network for use in the CbC algorithm (line 4); 4) Select k seed nodes sequentially. Firstly, select an 
+action based on the current state, choose a seed node according to the corresponding strategy of the action, then calculate the reward, 
+update the experience pool, policy network, target network, etc. Loop this step until k seeds are selected. (lines 5 – 29); 5) Obtain the 
+seed node set (line 30).
+Algorithm 2: A two-stage seed algorithm based on DQN
+Input : Social trust network G = ( V , E , W ) , the number of seed nodes k , initial opinions, initial strategies, T , λ , DQN parameters (policy net, target net, replay buffer, 
+optimizer)
+Output : Final seed set S
+BEGIN
+1: Calculate the λ * k potential seeds by Algorithm 1, denoted as C ;
+2: Initialize seed node set S ←∅ , ε ← 0 . 4, β
+dqn
+← 0 . 4;
+3: Initialize replay buffer ← PrioritizedReplayBuffer (10000);
+4: Detect communities in G ;
+5: for m = 1 : k , do
+6: Extract current state s
+m
+;
+7: Select action a
+m 
+using ε -greedy strategy and policy net;
+8: Adjust ε by ε = max ( 0 . 9* ε , 0 . 1 ) ;
+9: if a
+m
+= MaxDegree, then
+10: Sort the nodes in set C \ S in descending order according to their out-degree;
+11: else if a
+m
+= Blocking, then
+12: Sort the nodes in set C \ S in descending order according to their in-degree;
+13: else if a
+m
+= MixStrategy, then
+14: Sort the nodes in set C \ S in descending order according to their mix-degree;
+15: else if a
+m
+= CbC, then
+16: Sort the nodes in set C \ S in descending order according to their community-based centrality;
+17: else if a
+m
+= CI, then
+18: Sort the nodes in set C \ S in descending order according to their collective influence;
+19: end if
+20: Select the top ranked node v
+*
+;
+21: Calculate the reward r
+m
+= Γ ( S ∪ { v
+*
+})   Γ ( S ) ;
+22: S ← S ∪ { v
+*
+} ;
+23: Add the experience to the replay buffer;
+24: Update the policy network using the replay buffer, optimizer and β
+dqn
+;
+25: If m %10 = 0, then
+26: Soft update the target network with the policy network;
+27: end if
+28: β
+dqn
+← min
+ 
+1 , β
+dqn
++ 10
+  4
+)
+29: end for
+30:Obtain the final seed set S ；
+END
+3. Data and Verification
+3.1. Datasets and parameter settings
+This section validates the effectiveness and robustness of the T-DQN algorithm on six network datasets, as shown in Table 1 . Firstly, 
+we consider three synthetic networks, namely the Barab ´asi-Albert-V ´azquez (BBV) network [ 36 ], the Stochastic Block Model (SBM) 
+[ 37 ], and the Watts-Strogatz (WS) network [ 38 ]. The BBV network is an extension of the Barab ´asi – Albert (BA) network [ 39 ], which 
+introduces an “ edge removal ” mechanism, allowing nodes in the network to not only add connections but also lose or change 
+Table 1 
+Description of Six Social Networks.
+Network Number of nodes Number of edges Average degree Proportion of positive edge weights
+BBV 5000 30000 12 80 %
+SBM 5000 16954 6.78 79.80 %
+WS 5000 30000 12 80 %
+WikiElec 7118 103747 29.15 78.79 %
+Gnutella 22687 54705 4.82 80 %
+Reddit 54075 234792 8.68 92.14 %
+L. Yu et al.                                                                                                                                                                                                              Information Sciences 729 (2026) 122879 
+9 
+
+
+--- PAGE 10 ---
+connections to a certain extent, which more closely aligns with the changes in relationships between nodes in reality. The SBM is a 
+generative model used to describe the structure of network communities, while the WS network will generate graphs with small-world 
+properties. In addition, we utilize three real social networks that have been widely used in social network analysis: WikiElec [ 40 ], 
+representing Wikipedia adminship elections up to January 2008; Gnutella [ 41 ], a peer-to-peer network (snapshot from August 25, 
+2002); and Reddit [ 42 ], constructed from subreddit-to-subreddit hyperlinks extracted from post titles in public Reddit data spanning 
+Fig. 3. The impact of the number of seed nodes on overall opinions across six different networks ( P
+0
+coop
+= 0 . 5).
+L. Yu et al.                                                                                                                                                                                                              Information Sciences 729 (2026) 122879 
+10 
+
+
+--- PAGE 11 ---
+January 2014 to April 2017. To ensure the effectiveness and efficiency of the experiment, we set the size of the synthetic networks to 
+5000 nodes. In addition, referring to the proportion of positive edge weights in WikiElec, we maintain approximately 80 % of edge 
+weights as positive when constructing the other unsigned networks.
+The nodes randomly select initial opinions from [   1 , 1 ] and randomly choose initial strategies with equal probability: cooperation 
+or defection. In the process of opinion dissemination, all nodes update their opinions synchronously based on their current strategies 
+Fig. 4. The impact of time steps on overall opinion across six different networks ( P
+0
+coop
+= 0 . 5).
+L. Yu et al.                                                                                                                                                                                                              Information Sciences 729 (2026) 122879 
+11 
+
+--- PAGE 12 ---
+and then update their next strategies synchronously based on the calculated benefits. Considering the uncertainty of strategy selection 
+and initial opinions, each experiment is repeated 20 times, and the corresponding average result is reported. Referring to the previous 
+literature [ 43 ], we retain the original edge weight signs in the social network. Each out-degree edge of node i in the social network is 
+assigned a weight of 1 / d
+i
+, where d
+i 
+refers to the number of neighbors that node i points to. This design ensures that a node distributes its 
+attention evenly across all out-neighbors, while faithfully preserving the signed trust – distrust structure of the network. The proportion 
+parameter λ will determine the number of potential seeds, and its increase will greatly increase the complexity of the algorithm. During 
+the experiment, we set λ = 2. The learning rate α in the DQN algorithm is 0 . 01, aiming to balance training speed and stability and avoid 
+drastic fluctuations during the learning process. The discount factor γ = 0 . 95 encourage agents to make longer-term decisions, which is 
+suitable for seed node selection tasks that require global optimization. All experiments were conducted on a laptop equipped with an 
+Intel Core i9-13900H CPU, 32 GB RAM, and a 1 TB SSD, running Windows 11. The implementation was developed in Python 3.10 with 
+PyTorch 2.2.
+3.2. Algorithm Verification
+This section compares the five algorithms used as action strategies in the DQN algorithm with our T-DQN algorithm with our T- 
+DQN algorithm. We further introduce a Q-Learning baseline that adopts the same candidate seed selection process, reward function, 
+and action space as T-DQN, but differs in its state representation by discretizing the cooperation ratio and average opinion into in -
+tervals to construct a tabular Q-learning setting. To assess the performance of these algorithms, we vary the number of seed nodes and 
+the number of time steps across different networks.
+3.2.1. Performance under different numbers of seeds
+We set the time step to 30 and demonstrate the performance of seven algorithms on six different networks under different numbers 
+of seed nodes, as shown in Fig. 3 . As the quantity of seed nodes grows, the sum of the final opinions gradually increases. In terms of 
+baseline action strategies, T-DQN surpasses the five heuristic algorithms, demonstrating the advantage of integrating learning-based 
+decisions. Specifically, the MaxDegree and CbC algorithms exhibit the weakest performance across all networks, with highly similar 
+results. In contrast, the Blocking algorithm performs well across different networks — except on the Gnutella network, where its 
+performance is surpassed by the MixStrategy algorithm. This may be because the Blocking strategy tends to select nodes that act as 
+structural bottlenecks or play critical roles in network connectivity, making it more effective in dense or clearly community-structured 
+networks. However, in sparse and loosely connected networks like Gnutella, where nodes are scattered and there are few bridging or 
+control paths, it becomes difficult for Blocking to identify globally influential nodes. Instead, the MixStrategy algorithm, which 
+combines both in-degree and out-degree features, demonstrates greater adaptability in sparse network settings, thereby achieving 
+better performance than Blocking on the Gnutella network. In terms of reinforcement learning methods, T-DQN achieves better 
+performance than Q-Learning on five of the six networks, which may be attributed to its ability to handle continuous state information 
+more effectively, whereas Q-Learning relies on discretizing multiple states, potentially losing important details. Nevertheless, Q- 
+Learning achieves better results on the Gnutella network when the number of seed nodes is 40 and 60, and on the BBV and Reddit 
+networks Q-Learning ’ s results are close to those of T-DQN. Overall, these results indicate that T-DQN provides a more consistent and 
+robust performance across diverse network structures.
+It is worth noting that the advantage of the T-DQN algorithm is relatively limited on the BBV network, while it achieves better 
+performance on other networks. This may be due to the Blocking algorithm prioritizing nodes with more potential impact objects, 
+namely super nodes. In the BBV network, these super nodes already exhibit strong centrality and dominate information flow, reducing 
+the optimization space for our seed selection. Moreover, the strategy selection mechanism in the opinion dynamic model further 
+amplifies the role of super nodes in propagating opinions, which limits our algorithm ’ s improvement on this network.
+3.2.2. Performance under different time steps
+We set the number of seed nodes to 40 and demonstrate the performance of seven algorithms on six different networks under 
+different time steps, as shown in Fig. 4 . As the time steps increase, the sum of the final opinions first increases significantly, then 
+increases slightly, or even decreases. In terms of the performance of different algorithms, T-DQN generally exhibits an obvious 
+advantage over the five heuristic algorithms and Q-Learning, although on the Gnutella network with short time steps, CbC and Q- 
+Learning achieve slightly better performance. Specifically, the MaxDegree and CbC algorithms still perform relatively similarly and 
+have the worst performance on different networks, except on the Gnutella network. In sparse networks such as Gnutella, although T- 
+DQN performs slightly worse than the CbC algorithm and Q-Learning when the total time step is short, its advantage becomes more 
+apparent as the time step increases. This phenomenon may be attributed to the sparsity of the Gnutella network, which has an average 
+degree of only 4.82. The limited connectivity makes it difficult for the influence of seed nodes to reach distant parts of the network 
+within a short propagation period. However, when a longer propagation process is allowed, T-DQN can better exploit the network 
+structure and optimize seed node selection, thereby achieving more effective opinion spread. In contrast, in denser or more 
+community-structured synthetic networks such as BBV, SBM, and WS, T-DQN consistently outperforms other methods under almost all 
+propagation step settings. Moreover, in real-world networks such as WikiElec and Reddit, T-DQN also achieves the best opinion 
+maximization performance. These findings indicate that our T-DQN algorithm possesses strong generalization and adaptability across 
+both synthetic and real-world networks, regardless of whether the network is sparse or dense. This further validates the effectiveness 
+and robustness of our T-DQN algorithm.
+L. Yu et al.                                                                                                                                                                                                              Information Sciences 729 (2026) 122879 
+12 
+
+
+--- PAGE 13 ---
+3.2.3. Performance considering the phenomenon of echo chamber
+Considering the common “ echo chamber ” phenomenon in real-world social networks, where individuals within the same com -
+munity tend to hold similar initial opinions, we conduct additional experiments on the SBM network with community-consistent initial 
+opinions to further validate the effectiveness of our algorithm. We choose SBM instead of BBV, WS, WikiElec, Gnutella, or Reddit 
+because these networks present certain limitations regarding community structure. Although BBV and WS are synthetic networks, their 
+generation mechanisms primarily emphasize degree distribution or small-world properties, resulting in less distinct community fea -
+tures. WikiElec and Reddit, as real-world networks, often exhibit complex or ambiguous community divisions. Gnutella, being a highly 
+sparse peer-to-peer network, has scattered connections that hinder the formation of stable communities. In contrast, SBM offers clearly 
+defined and controllable community boundaries, making it particularly suitable for simulating opinion propagation under community 
+consistency. In this experiment, each community is assigned a randomly generated “ opinion center ” within the range [   1 , 1 ] . The 
+initial opinion of each node in the community is then sampled from a Gaussian distribution centered at this opinion center with a 
+standard deviation of 0.2, and clipped to remain within the range of [   1 , 1 ] . This setting more realistically captures the convergence of 
+opinions within communities and allows us to analyze its impact on overall opinions and algorithm performance.
+As shown in the experimental results in Fig. 5 , in terms of overall opinions, the sum of final opinions increases as the number of seed 
+nodes grows, but decreases with longer time steps. This downward trend in the sum of final opinions with respect to time steps may be 
+attributed to the echo chamber setting, where nodes within the same community start with similar initial opinions. Within a shorter 
+propagation duration, opinion dynamics mostly occur within communities. Given that most edge weights are positive, the high opinion 
+similarity within communities is likely to result in higher weighted average benefits, making nodes more willing to adopt the opinions 
+and strategies of their neighbors and thus achieving a higher final opinion sum. However, as the time steps increase, opinions are more 
+likely to spread across community boundaries. Nodes begin to receive conflicting opinions from out- community neighbors, which may 
+reduce weighted average benefits and cooperation, ultimately lowering the final opinion sum. This finding suggests that when the echo 
+chamber phenomenon is present, a longer opinion evolution process may hinder opinion maximization in social trust networks with 
+clearly defined community structures.
+In terms of algorithm performance, we observe that our T-DQN algorithm consistently demonstrates superior effectiveness 
+compared with the five heuristic algorithms across different numbers of seed nodes and time steps. Although it slightly lags behind the 
+Blocking algorithm when the number of seed nodes is small (e.g., 20 seeds), T-DQN steadily outperforms all other heuristic algorithms 
+as the number of seeds increases, achieving the best opinion maximization results. Compared with Q-Learning, the advantage of T- 
+DQN is somewhat variable when the number of seed nodes changes, but it remains consistently stable across different time steps. This 
+outcome confirms that our algorithm remains effective and robust even under varying initial opinion settings.
+3.2.4. Sensitivity analysis on edge weights
+To further examine the impact of edge weight modeling, we conduct additional experiments on the WS and WikiElec networks 
+using a node-level normalization scheme as an alternative to the edge weight modeling described in Section 3.1 . In this scheme, the 
+absolute values of outgoing edge weights for each node are randomly generated and then normalized so that their sum equals one, 
+while maintaining the same proportion of positive edge weights. As shown in Fig. 6 , the choice of weighting scheme exerts only a 
+minor impact on the relative performance of the algorithms. In particular, the ranking of different algorithms remains largely 
+consistent with the results reported in Figs. 4 and 5 . A slight exception occurs in scenarios with a limited number of seed nodes, where 
+Q-Learning slightly outperforms T-DQN. However, as the number of seed nodes increases, T-DQN consistently outperforms both Q- 
+Fig. 5. Comparison of different algorithms on SBM when considering echo chamber phenomenon.
+L. Yu et al.                                                                                                                                                                                                              Information Sciences 729 (2026) 122879 
+13 
+
+
+--- PAGE 14 ---
+Learning and the five heuristic algorithms. These findings demonstrate that the superiority of T-DQN is not sensitive to the choice of 
+edge weight normalization and remains robust under different weighting schemes.
+3.3. Efficiency analysis and ablation studies
+3.3.1. Efficiency analysis
+To evaluate the computational efficiency of different algorithms, we compare their running times across six networks under the 
+setting of 30 time steps and 40 seed nodes, as reported in Table 2 . The proposed T-DQN consistently incurs the longest runtime, 
+Fig. 6. Performance comparison with node-level normalized edge weights.
+Table 2 
+Running Time (sec) across Six Social Networks.
+Network T-DQN MaxDegree Blocking MixStrategy CbC CI Q-Learning
+BBV 1103.53 19.76 18.21 19.45 19.76 18.87 792.64
+SBM 997.58 16.67 16.35 16.53 17.11 16.47 693.76
+WS 1029.49 17.13 17.4 17.24 17.22 17.32 768.2
+WikiElec 1679.65 38.35 37.97 38.29 38.31 37.98 1442.19
+Gnutella 2383.38 58.87 59.31 59.25 59.64 59.36 2176.13
+Reddit 5673.92 73.52 73.47 72.95 73.38 73.29 5238.34
+L. Yu et al.                                                                                                                                                                                                              Information Sciences 729 (2026) 122879 
+14 
+
+
+--- PAGE 15 ---
+followed by Q-Learning, whereas all five heuristic baselines complete in a similarly short time on each network. This discrepancy is 
+expected, since reinforcement learning-based methods require iterative interactions with the environment during the seed selection 
+process. Q-Learning repeatedly updates state – action values, and T-DQN further integrates deep neural network approximation, PER, 
+and soft updates of the target network, which together result in the highest computational cost. In contrast, heuristics such as Max -
+Degree, Blocking, MixStrategy, CbC, and CI rely only on one-shot computations of structural measures and are therefore substantially 
+faster. Despite its higher cost, T-DQN justifies the overhead by providing stronger global optimization capacity and superior opinion 
+maximization performance, while Q-Learning offers a more practical balance when computational efficiency is the primary concern.
+To further examine the efficiency and stability of T-DQN, we additionally evaluate the effect of training epochs on T-DQN. Spe -
+cifically, we conduct experiments on the WS network under the setting of 30 time steps and 40 seed nodes, with the initial opinions and 
+strategies fixed across runs. The training and testing process is repeated for 10 epochs. As shown in Fig. 7 , both the final opinion sum 
+and cooperation ratio fluctuate slightly across epochs, with variations of less than 5 % around their respective averages. The sum of 
+final opinions ranges from 138.33 to 149.97, and the final cooperation ratio from 0.83 to 0.88, indicating that the outcomes remain 
+concentrated within a narrow band. These results suggest that, although minor fluctuations occur due to stochastic exploration and 
+parameter updates during the training process, T-DQN demonstrates stable convergence behavior across repeated epochs.
+Fig. 8 reports the sensitivity analysis of key parameters in the proposed T-DQN framework. As shown in Fig. 8(a) , the proportion 
+parameter λ has a noticeable effect. Larger λ , such as 3 or 4, lead to slightly higher opinion sums, but the marginal gain diminishes 
+rapidly with increasing λ while the computational cost rises significantly. Therefore, λ = 2 achieves a favorable balance between 
+effectiveness and efficiency and is adopted as the default in our experiments. Fig. 8(b) examines the sensitivity of α , γ , and τ . Increasing 
+α improves the final opinion sum but brings little gain beyond 0.01 and increases variance. Higher γ consistently raises the final 
+opinion sum, reflecting the benefit of capturing long-term opinion gains. Larger τ accelerate the target network updates, boosting the 
+final opinion sum but also introducing greater variability, highlighting a trade-off between learning speed and stability. Based on these 
+trends, the chosen values α = 0 . 01, γ = 0 . 95, and τ = 0 . 05 provide a good balance between performance and stability.
+3.3.2. Ablation studies
+To further clarify the contribution of its key components to the proposed T-DQN algorithm, we conduct a series of ablation ex -
+periments on a synthetic network (WS) and a real social network (Gnutella). Specifically, we design three ablated variants: (1) No_PER, 
+where the prioritized experience replay mechanism is removed; (2) No_Soft, where the soft update of the target network is disabled; 
+and (3) Limited, where the action space is restricted from five seed selection strategies to only three, namely MaxDegree, Blocking, and 
+MixStrategy. In addition to these variants, we include the T-DQN algorithm and a random algorithm as baselines, allowing for a 
+systematic evaluation of the necessity of each component and revealing how different design choices influence the overall performance 
+of opinion maximization.
+As shown in Fig. 9 , the ablation results reveal that the PER mechanism plays the most critical role in the proposed algorithm. Under 
+the No_PER setting, the performance degradation becomes increasingly significant as the number of seed nodes grows, indicating that 
+prioritized experience replay substantially enhances learning efficiency. The soft update mechanism also proves essential for main -
+taining stability. The results of No_Soft exhibit noticeably larger variances, as reflected by the error bars. In contrast, the Limited 
+strategy results in only a minor performance drop, suggesting that the remaining three actions (MaxDegree, Blocking, and Mix -
+Strategy) are sufficient to preserve the majority of the opinion maximization capability. Furthermore, the T-DQN algorithm consis -
+tently and significantly outperforms the random algorithm, which highlights the effectiveness of learning-based seed selection 
+compared with naive baselines.
+Fig. 7. Stability of T-DQN across 10 epochs on the WS network.
+L. Yu et al.                                                                                                                                                                                                              Information Sciences 729 (2026) 122879 
+15 
+
+
+--- PAGE 16 ---
+4. Simulation experiment and analysis
+4.1. The impact of initial cooperation ratio on the distribution of final opinions
+To investigate the impact of the initial cooperation ratio on the distribution of final opinions, we conduct experiments on the 
+WikiElec network. Fixing other parameters, we set 20, 50, and 80 seed nodes, respectively, and examine the cases where the initial 
+cooperation ratio is 0.1 and 0.9, respectively. The experiment results are shown in Fig. 10 . As the number of seed nodes increases, the 
+final opinion distribution gradually disperses, and the peak shifts progressively to the right, indicating an increase in the average 
+opinion. This phenomenon demonstrates the effectiveness of seed nodes in maximizing opinions. Regarding the impact of the initial 
+cooperation ratio, most studies argue that initial stubborn nodes will significantly impact opinion dissemination [ 44 , 45 ]. However, we 
+find that the initial cooperation ratio has a limited impact on the distribution of final opinions. When there are few seed nodes, a higher 
+initial cooperation ratio promotes consensus ( Fig. 10 (a1) (a2)). As the quantity of seed nodes grows, the impact of the initial coop -
+eration ratio gradually weakens ( Fig. 10 (b1) (b2)). In the case of a large number of seed nodes, only a slight increase in the average 
+Fig. 8. Parameter sensitivity of T-DQN on the WS network.
+Fig. 9. Results of ablation studies on WS and Gnutella networks under different numbers of seed nodes. Each bar represents the average perfor -
+mance over 20 independent runs, and the error bars show the standard deviation. Statistical significance is assessed by comparing each ablation 
+variant (No_PER, No_Soft, Limited) and the Random algorithm against the proposed T-DQN algorithm using the Wilcoxon signed-rank test. The 
+asterisks above the bars denote significance levels: p < 0 . 05 (*), p < 0 . 01 (**), and p < 0 . 001 (***). “ ns ” means not significant. And T = 30.
+L. Yu et al.                                                                                                                                                                                                              Information Sciences 729 (2026) 122879 
+16 
+
+
+--- PAGE 17 ---
+final opinion ( Fig. 10 (c1) (c2)).
+When there are few seed nodes, most nodes in the network cannot directly or indirectly receive their influence, and a higher initial 
+cooperation ratio helps local opinions to converge. However, as the quantity of seed nodes grows, their influence in the network 
+expands, allowing most nodes to directly or indirectly receive the impact of their strategies. In this case, even if the initial cooperation 
+ratio is low, the dependence of the final opinion distribution on the initial cooperation ratio is significantly reduced due to nodes 
+dynamically adjusting their cooperation or defection strategies based on interactions during the evolution process. Therefore, in the 
+pursuit of maximizing opinions, the increase in the number of seed nodes plays a more critical role than the initial cooperation ratio. As 
+the quantity of seed nodes grows, their overall influence on the network strengthens, making it easier to guide individual opinions. In 
+practice, optimization of seed node selection should not be neglected even if the initial proportion of stubborn nodes is very high; 
+otherwise, opportunities to effectively intervene in the evolution of network opinions may be missed.
+4.2. The impact of network structure on evolution results
+The structure of networks is fundamental to the spread of opinions [ 32 ]. To investigate the impact of network structure on 
+propagation results, we conduct experiments with average degrees of 6, 12, 20, and 40 on four synthetic networks: BBV, Erd ˝os-R ´enyi 
+(ER) [ 46 ], WS, and BA. It should be noted that the SBM network is excluded from this part because its average degree cannot be 
+precisely controlled due to the randomness in its generation process. Instead, we introduce two additional network models, ER and BA, 
+both with 5000 nodes and 80 % positive edge weights, to systematically examine the impact of average degree on opinion maximi -
+zation. The experimental results are shown in Fig. 11 . As the average degrees of the networks increase, the sum of final opinions shows 
+a significant downward trend. This phenomenon may arise because opinion propagation is more localized in networks with lower 
+average degrees, allowing seed nodes with high opinion values to influence their neighbors more effectively. However, in networks 
+= 0.1 = 0.9
+= 0.1 = 0.9
+= 0.1 = 0.9
+Fig. 10. Average opinion distribution on WikiElec network under different initial cooperation ratios and different numbers of seed nodes. The left 
+column represents an initial cooperation ratio of 0.1, while the right column represents an initial cooperation ratio of 0.9. From top to bottom, the 
+number of seed nodes is 20 (a), 50 (b), and 80 (c), respectively. And T = 30.
+L. Yu et al.                                                                                                                                                                                                              Information Sciences 729 (2026) 122879 
+17 
+
+
+--- PAGE 18 ---
+with high average degrees, nodes receive information from more neighbors, which enhances the mutual offsetting effect between 
+different opinions, causing the overall opinions to tend towards the mean, thereby reducing the final sum of opinions.
+Therefore, under some application scenarios of opinion maximization (e.g., online marketing, opinion guidance, etc.), the 
+dissemination of positive opinions can be enhanced by strategically reducing or controlling connections within the network. For 
+example, on some social platforms, for some socially harmful accounts, platforms may restrict them from being followed or limit other 
+users from searching for these accounts, which, to some extent, can regulate the dissemination of opinions.
+To further explore the impact of network structure, we focus on the role of conductance, which reflects the ease with which in -
+formation flows across different parts of a network. In the experiments, we specifically select SBM and Hyperbolic Random Graph 
+(HRG) models because they offer controllable and interpretable mechanisms for adjusting conductance while preserving realistic 
+structural features. The SBM network allows us to directly manipulate conductance through the inter-community connection prob -
+ability, making it ideal for studying information flow across community boundaries. In our experiments, we fix the intra-community 
+connection probability at 0.006 and vary the inter-community probability to 0.0001, 0.0008, and 0.0015, representing low, medium, 
+and high conductance, respectively. The HRG model, on the other hand, generates networks with hierarchical and geometric com -
+munity structures, and its temperature parameter controls the randomness of connections. Lower temperatures correspond to stronger 
+communities and lower conductance, while higher temperatures increase randomness and connectivity. We set the temperature to 0.1, 
+0.5, and 0.9 to simulate low, medium, and high conductance levels accordingly. The HRG network used contains 3000 nodes, an 
+average degree of 5, and a power-law degree exponent of 2.5.
+As shown in Fig. 12 , in the SBM network, regardless of the specific settings for the number of seed nodes or time steps, the final 
+opinion sum consistently decreases as the inter-community connection probability increases, corresponding to higher network 
+conductance. This phenomenon partially supports our previous observation that a higher average degree tends to result in a lower final 
+opinion sum. In contrast, the HRG network exhibits a different pattern: the sum of final opinions reaches its peak under medium 
+conductance (temperature = 0.5), followed by low conductance (temperature = 0.1), and is lowest under high conductance (tem -
+perature = 0.9). This trend deviates from the monotonic decline observed in the SBM network and can likely be attributed to the 
+unique geometric structure of the HRG network. In HRG, conductance not only reflects the density of edges but also implicitly captures 
+Fig. 11. The impact of network structures with different average degrees on the final opinions. The number of seed nodes is fixed at 40.
+L. Yu et al.                                                                                                                                                                                                              Information Sciences 729 (2026) 122879 
+18 
+
+
+--- PAGE 19 ---
+the complex constraints imposed by node positions and their connections within the hyperbolic space.
+Therefore, when pursuing opinion maximization, it is crucial to adjust the conductance based on the underlying network structure. 
+In clearly partitioned networks such as SBM, restricting inter-community communication can improve the sum of final opinions. For 
+geometrically embedded and structurally complex networks like HRG, maintaining medium conductance facilitates the achievement 
+of opinion maximization.
+5. Conclusion
+This paper investigates the problem of opinion maximization (OM) in social trust networks, proposes a game-based opinion dy -
+namic model, and designs a two-stage seed selection method (T-DQN) based on deep reinforcement learning to optimize the selection 
+of seed nodes. Experimental results demonstrate that the T-DQN algorithm outperforms the baseline algorithms in maximizing the sum 
+of final opinions and maintains strong robustness across different types of networks. In addition, simulation experiments indicate that:
+(1) Under different initial opinion settings, the time steps of opinion dissemination have varying impacts on maximizing opinions. 
+In networks exhibiting the echo chamber phenomenon, where nodes within the same community hold more similar initial opinions, 
+longer opinion evolution can hinder the achievement of opinion maximization, particularly in social trust networks with well-defined 
+community structures.
+(2) Compared with the initial cooperation ratio, the number of seed nodes plays a more critical role in maximizing opinions. When 
+the number of seed nodes is small, a higher initial cooperation ratio can facilitate the convergence of local opinions. However, as the 
+quantity of seed nodes grows, the influence of the initial cooperation ratio on the final opinion distribution diminishes significantly. 
+Therefore, when pursuing opinion maximization, even when the initial proportion of stubborn nodes is high, optimizing the selection 
+of seed nodes remains crucial to effectively intervene in the evolution of network opinions.
+(3) A lower network average degree facilitates opinion maximization. As the network average degree increases, the sum of final 
+opinions shows a significant downward trend. Therefore, in certain application scenarios of opinion maximization, such as online 
+Fig. 12. The impact of network structures with different conductance on the final opinions. The time steps in the left column are fixed at 30, and the 
+number of seed nodes in the right column is fixed at 40.
+L. Yu et al.                                                                                                                                                                                                              Information Sciences 729 (2026) 122879 
+19 
+
+--- PAGE 20 ---
+marketing or opinion guidance, strategically reducing network connections can enhance the dissemination of positive opinions.
+(4) In opinion maximization, adjusting network conductance according to the underlying network structure is critical. For clearly 
+partitioned networks such as SBM, restricting inter-community communication can improve the sum of final opinions, whereas for 
+geometrically embedded and structurally complex networks like HRG, maintaining a medium conductance is most conducive to 
+maximizing opinions.
+Our research enriches the theoretical study of OM problems and provides new ideas and methods for opinion guidance and in -
+formation dissemination optimization in social networks. Nevertheless, several limitations remain. First, our model is based on a fixed 
+network structure, while real-world social networks typically have dynamic evolutionary characteristics. OM that can adapt to dy -
+namic networks could be explored in the future. Second, we only considered the dissemination of opinions on a single topic, and 
+further research is needed on its applicability in multi-topic, multi-level, and competitive networks.
+CRediT authorship contribution statement
+Lin Yu: Writing – review & editing, Writing – original draft, Conceptualization. Ting Yang: Formal analysis. Cuiyou Yao: Writing – 
+review & editing, Funding acquisition. Dongpu Fu: Writing – review & editing. Yuzhi Wang: Supervision.
+Declaration of competing interest
+The authors declare that they have no known competing financial interests or personal relationships that could have appeared to 
+influence the work reported in this paper.
+Acknowledgements
+This work was supported by the National Social Science Foundation of China (Grant No. 22BGL264).
+Data availability
+Data will be made available on request.
+References
+[1] Y. Ghahremani, B. Amiri, A novel simplicial complex representation of social media texts: The case of Twitter, Chaos, Solitons Fractals 173 (2023), https://doi. 
+org/10.1016/j.chaos.2023.113642 .
+[2] Z.F. Li, X.J. Chen, H.X. Yang, A. Szolnoki, Game-theoretical approach for opinion dynamics on social networks, Chaos 32 (7) (2022), https://doi.org/10.1063/ 
+5.0084178 .
+[3] A. Ullah, S.U. Din, N. Khan, C.B. Mawuli, J.M. Shao, Towards investigating influencers in complex social networks using electric potential concept from a 
+centrality perspective, Inf. Fusion 109 (2024), https://doi.org/10.1016/j.inffus.2024.102439 .
+[4] N. Wang, W.X. Xie, V. Tiberius, Y. Qiu, Accelerating new product diffusion: How lead users serve as opinion leaders in social networks, J. Retail. Consum. Serv. 
+72 (2023), https://doi.org/10.1016/j.jretconser.2023.103297 .
+[5] L. Shi, Y.H. Cheng, J.L. Shao, X.F. Wang, H.M. Sheng, Leader-Follower Opinion Dynamics of Signed Social Networks with Asynchronous Trust/Distrust Level 
+Evolution, IEEE Trans. Network Sci. Eng. 9 (2) (2022) 495 – 509, https://doi.org/10.1109/tnse.2021.3122446 .
+[6] F. Teng, X.R. Liu, X. Dong, P.D. Liu, A novel consensus model considering individual and social behaviors under the social trust network, Inf. Sci. 670 (2024), 
+https://doi.org/10.1016/j.ins.2024.120587 .
+[7] D. Kempe, J. Kleinberg, 
+´
+E. Tardos, Maximizing the spread of influence through a social network, in ACM SIGKDD international conference on knowledge 
+discovery and data mining, Washington, D.C., United States, 2003, pp. 137-146. https://doi.org/10.1145/956750.956769.
+[8] R. Molaei, K.R. Fard, A. Bouyer, An Improved Influence Maximization Method for Online Advertising in Social Internet of Things, Big Data 12 (3) (2024) 
+173 – 190, https://doi.org/10.1089/big.2023.0042 .
+[9] M.A. Manouchehri, M.S. Helfroush, H. Danyali, Non-Uniform Influence Maximization in Social Network, Expert Syst. Appl. 207 (2022), https://doi.org/ 
+10.1016/j.eswa.2022.118052 .
+[10] C. Liu, H.C. Xu, X.Y. Liu, Online influence maximization under continuous independent cascade model with node-edge-level feedback, Knowl. Inf. Syst. 66 (2) 
+(2024) 1091 – 1110, https://doi.org/10.1007/s10115-023-01982-8 .
+[11] W.J. Yang, Q.H. Shi, J.Z. Yan, C. Wang, M.L. Song, M.H. Wu, Complementary influence maximization under comparative linear threshold model, Expert Syst. 
+Appl. 238 (2024), https://doi.org/10.1016/j.eswa.2023.121826 .
+[12] N. Gask ´o, T. K ´epes, R.I. Lung, M. Suciu, Identification of influential nodes with Shapley Influence Maximization Extremal Optimization algorithm, Appl. Soft 
+Comput. 146 (2023), https://doi.org/10.1016/j.asoc.2023.110653 .
+[13] C. Zhang, W.M. Li, D.M. Wei, Y.X. Liu, Z. Li, Network Dynamic GCN Influence Maximization Algorithm with Leader Fake Labeling Mechanism, IEEE Trans. 
+Comput. Social Syst. 10 (6) (2023) 3361 – 3369, https://doi.org/10.1109/tcss.2022.3193583 .
+[14] N. Pathak, A. Banerjee, J. Srivastava, A Generalized Linear Threshold Model for Multiple Cascades, in 2010 IEEE International Conference on Data Mining, 
+Sydney, NSW, Australia, 2010, pp. 965-970. https://doi.org/10.1109/ICDM.2010.153.
+[15] A.N. Zehmakan, X. Zhou, Z. Zhang, Viral marketing in social networks with competing products, in Proceedings of the International Joint Conference on 
+Autonomous Agents and Multiagent Systems, AAMAS, 2024, pp. 2047 – 2056. https://doi.org/10.48550/arXiv.2312.15819.
+[16] J.L. Dai, J.M. Zhu, G.Q. Wang, Opinion influence maximization problem in online social networks based on group polarization effect, Inf. Sci. 609 (2022) 
+195 – 214, https://doi.org/10.1016/j.ins.2022.07.086 .
+[17] A. Gionis, E. Terzi, P. Tsaparas, Opinion maximization in social networks, in: in Proceedings of the 2013 SIAM International Conference on Data Mining (SDM), 
+2013, pp. 387 – 395, https://doi.org/10.1137/1.9781611972832.43 .
+[18] J.R. Dong, Y.C. Zhang, Y.X. Kong, The evolution dynamics of collective and individual opinions in social networks, Expert Syst. Appl. 255 (2024), https://doi. 
+org/10.1016/j.eswa.2024.124813 .
+[19] A. Bizyaeva, A. Franci, N.E. Leonard, Nonlinear Opinion Dynamics with Tunable Sensitivity, IEEE Trans. Autom. Control 68 (3) (2023) 1415 – 1430, https://doi. 
+org/10.1109/tac.2022.3159527 .
+L. Yu et al.                                                                                                                                                                                                              Information Sciences 729 (2026) 122879 
+20 
+
+
+--- PAGE 21 ---
+[20] N. Zahabi, D. Shishika, Nonlinear Opinion Dynamics Models with Stubborn Individuals Over Signed Graphs, IEEE Trans. Control Network Syst. 10 (2) (2023) 
+777 – 784, https://doi.org/10.1109/tcns.2022.3210293 .
+[21] D.S. Hunter, T. Zaman, Optimizing Opinions with Stubborn Agents, Oper. Res. 70 (4) (2022), https://doi.org/10.1287/opre.2022.2291 .
+[22] M. Shirzadi, A.N. Zehmakan, Acm, Do Stubborn Users Always Cause More Polarization and Disagreement? A Mathematical Study, in 18th International 
+Conference on Web Search and Data Mining-WSDM, Hannover, GERMANY, 2025, pp. 309-317. https://doi.org/10.1145/3701551.3703510.
+[23] Y. Cai, W.D. Shi, The influence of the community climate on users ’ knowledge-sharing intention: the social cognitive theory perspective, Behav. Inform. 
+Technol. 41 (2) (2022) 307 – 323, https://doi.org/10.1080/0144929x.2020.1808704 .
+[24] N.E. Friedkin, E.C. Johnsen, Social influence and opinions, J. Math. Sociol. 15 (3 – 4) (1990) 193 – 206, https://doi.org/10.1080/0022250X.1990.9990069 .
+[25] C. Bernardo, C. Altafini, F. Vasca, Finite-time convergence of opinion dynamics in homogeneous asymmetric bounded confidence models, Eur. J. Control. 68 
+(2022), https://doi.org/10.1016/j.ejcon.2022.100674 .
+[26] L.Q. Qiu, Y.Y. Liu, X.L. Duan, The best hop diffusion method for dynamic relationships under the independent cascade model, Appl. Intell. 52 (15) (2022) 
+17315 – 17325, https://doi.org/10.1007/s10489-022-03460-0 .
+[27] H.S. Wang, Q.T. Pan, J. Tang, MHPD: An efficient evaluation method for influence maximization on hypergraphs, Commun. Nonlinear Sci. Numer. Simul. 139 
+(2024), https://doi.org/10.1016/j.cnsns.2024.108268 .
+[28] Q. He, Y.J. Lv, X.W. Wang, J.H. Li, M. Huang, L.B. Ma, Y.L. Cai, Reinforcement-Learning-Based Dynamic Opinion Maximization Framework in Signed Social 
+Networks, IEEE Trans. Cognit. Dev. Syst. 15 (1) (2023) 54 – 64, https://doi.org/10.1109/tcds.2022.3141952 .
+[29] Q. He, L. Zhang, H. Fang, X.W. Wang, L.B. Ma, K.P. Yu, J. Zhang, Multistage Competitive Opinion Maximization With Q-Learning-Based Method in Social 
+Networks, IEEE Trans. Neural Networks Learn. Syst. (2024), https://doi.org/10.1109/tnnls.2024.3387293 .
+[30] L.J. Ma, Z.Y. Shao, X.C. Li, Q.Z. Lin, J.Q. Li, V.C.M. Leung, A.K. Nandi, Influence Maximization in Complex Networks by Using Evolutionary Deep Reinforcement 
+Learning, IEEE Trans. Emerging Top. Comput. Intell. 7 (4) (2023) 995 – 1009, https://doi.org/10.1109/tetci.2021.3136643 .
+[31] J.W. Wang, Z.L. Cao, C.Z. Xie, Y.L. Li, J. Liu, Z.S. Gao, DGN: influence maximization based on deep reinforcement learning, J. Supercomput. 81 (1) (2025), 
+https://doi.org/10.1007/s11227-024-06621-9 .
+[32] C.W. Huang, Y.Z. Hou, W.C. Han, Coevolution of consensus and cooperation in evolutionary Hegselmann-Krause dilemma with the cooperation cost, Chaos, 
+Solitons Fractals 168 (2023), https://doi.org/10.1016/j.chaos.2023.113215 .
+[33] H.J. Zhang, Y.J. Li, Y. Chen, H.V. Zhao, Smart Evolution for Information Diffusion Over Social Networks, IEEE Trans. Inf. Forensics Secur. 16 (2021) 1203 – 1217, 
+https://doi.org/10.1109/tifs.2020.3032039 .
+[34] Z.Y. Zhao, X.F. Wang, W. Zhang, Z.L. Zhu, A Community-Based Approach to Identifying Influential Spreaders, Entropy 17 (4) (2015) 2228 – 2252, https://doi. 
+org/10.3390/e17042228 .
+[35] F. Morone, H.A. Makse, Influence maximization in complex networks through optimal percolation, Nature 527 (7579) (2015) 544, https://doi.org/10.1038/ 
+nature15737 .
+[36] A. Vazquez, Growing network with local rules: preferential attachment, clustering hierarchy, and degree correlations, Physical review. E, Statistical, nonlinear, 
+and soft matter physics 67(5 Pt 2) (2003) 056104. https://doi.org/10.1103/PhysRevE.67.056104.
+[37] P.W. Holland, K.B. Laskey, S. Leinhardt, Stochastic blockmodels: First steps, Soc. Networks 5 (2) (1983) 109 – 137, https://doi.org/10.1016/0378-8733(83) 
+90021-7 .
+[38] D.J. Watts, S.H. Strogatz, Collective dynamics of ‘small-world ’ networks, Nature 393 (6684) (1998) 440 – 442, https://doi.org/10.1038/30918 .
+[39] A.-L. Barab ´asi, Statistical mechanics of complex networks, Rev. Mod. Phys. 74 (1) (2002) 97, https://doi.org/10.1103/RevModPhys.74.47 .
+[40] M. Shirzadi, A.N. Zehmakan, Acm, Do Stubborn Users Always Cause More Polarization and Disagreement? A Mathematical Study, in 18th International 
+Conference on Web Search and Data Mining-WSDM, Hannover, GERMANY, 2025, pp. 309-317. https://doi.org/10.1145/3701551.3703510.
+[41] M. Ripeanu, I. Foster, A. Iamnitchi, Mapping the Gnutella Network: Properties of Large-Scale Peer-to-Peer Systems and Implications for System Design, IEEE 
+Internet Computing Journal 6 (1) (2002), https://doi.org/10.48550/arXiv.cs/0209028 .
+[42] S. Kumar, W.L. Hamilton, J. Leskovec, D. Jurafsky, M. Assoc Comp, Community Interaction and Conflict on the Web, in 27th World Wide Web (WWW) 
+Conference, Lyon, FRANCE, 2018, pp. 933-943. https://doi.org/10.1145/3178876.3186141.
+[43] Q. He, L.H. Sun, X.W. Wang, Z.K. Wang, M. Huang, B. Yi, Y.T. Wang, L.B. Ma, Positive opinion maximization in signed social networks, Inf. Sci. 558 (2021) 
+34 – 49, https://doi.org/10.1016/j.ins.2020.12.091 .
+[44] L.L. Yao, D.M. Xie, J.L. Zhang, Cluster consensus of opinion dynamics with stubborn individuals, Systems Control Lett. 165 (2022), https://doi.org/10.1016/j. 
+sysconle.2022.105267 .
+[45] H.X. Hu, G.H. Wen, Y. Chen, W.X. Zheng, Opinion dynamics analysis for stubborn individuals in cooperation-competition networks based on path-dependence 
+framework, Automatica 169 (2024), https://doi.org/10.1016/j.automatica.2024.111840 .
+[46] P. Erd ¨os, A. R ´enyi, On the evolution of random graphs, The Structure and Dynamics of Networks, Princeton University Press 2006, pp. 38-82.
+L. Yu et al.                                                                                                                                                                                                              Information Sciences 729 (2026) 122879 
+21 
+

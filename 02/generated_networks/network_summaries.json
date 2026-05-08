@@ -1,0 +1,20 @@
+{
+  "BBV": {
+    "nodes": 5000.0,
+    "edges": 29887.0,
+    "avg_degree": 11.9548,
+    "positive_ratio": 0.796232475658313
+  },
+  "SBM": {
+    "nodes": 5000.0,
+    "edges": 16580.0,
+    "avg_degree": 6.632,
+    "positive_ratio": 0.7930036188178529
+  },
+  "WS": {
+    "nodes": 5000.0,
+    "edges": 29993.0,
+    "avg_degree": 11.9972,
+    "positive_ratio": 0.7954522721968459
+  }
+}

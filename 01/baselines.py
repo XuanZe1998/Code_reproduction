@@ -105,6 +105,7 @@ def select_by_cbc(G, candidate_indices, k, communities):
     Returns:
         list: 按 CbC 得分降序排列的前 k 个节点
     """
+
     # 预计算各社区的节点数
     community_sizes = {}
     for c in set(communities.values()):

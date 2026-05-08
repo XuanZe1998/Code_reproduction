@@ -12,7 +12,6 @@
   - 基于候选种子特征的状态表示
   - 热身训练（Warmup）：在正式选种前先预训练 DQN
 
-参考文献：Yu et al., Information Sciences 729 (2026) 122879, 算法 2
 """
 
 import numpy as np

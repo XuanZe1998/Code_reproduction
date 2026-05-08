@@ -1,0 +1,41 @@
+{
+  "device": "cpu",
+  "episodes": 2,
+  "repeats": 1,
+  "datasets": [
+    "BBV",
+    "SBM",
+    "WS",
+    "BitcoinOTC"
+  ],
+  "seed_counts": [
+    20,
+    40,
+    60
+  ],
+  "time_steps": [
+    10,
+    20,
+    30,
+    40
+  ],
+  "echo_seed_counts": [
+    20,
+    40,
+    60
+  ],
+  "echo_time_steps": [
+    10,
+    20,
+    30,
+    40
+  ],
+  "methods": [
+    "T-DQN",
+    "MaxDegree",
+    "Blocking",
+    "MixStrategy",
+    "CbC",
+    "CI"
+  ]
+}

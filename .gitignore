@@ -43,3 +43,9 @@ htmlcov/
 
 # Logs
 *.log
+
+# Local tooling
+.workbuddy/
+
+# Generated results
+01/results/
